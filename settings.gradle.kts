@@ -39,7 +39,6 @@ include(
     ":androidApp",
     ":vivoAndroidApp",
     ":composeApp",
-    ":desktopApp",
     ":common",
     ":data",
     ":domain",

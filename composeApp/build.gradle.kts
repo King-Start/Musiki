@@ -69,8 +69,6 @@ kotlin {
 //        }
 //    }
 
-    jvm()
-
     sourceSets {
         dependencies {
             val composeBom = project.dependencies.platform(libs.compose.bom)
@@ -190,22 +188,6 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-        }
-        jvmMain.dependencies {
-            // Desktop app entry (main.kt), jpackage/Conveyor
-            // packaging, and tray icon live in :desktopApp per the
-            // JetBrains 2026 KMP default structure. This module keeps the
-            // shared JVM UI + expect/actuals and their direct dependencies.
-            implementation(compose.desktop.currentOs)
-            implementation(libs.kotlinx.coroutinesSwing)
-            implementation(libs.sentry.jvm)
-            implementation(libs.native.tray)
-            implementation(libs.nucleus.core.runtime)
-            implementation(projects.mediaJvmUi)
-            // macOS: hand window drags to the Window Server (ui/component/MacWindowDrag.kt)
-            implementation(libs.jna)
-            // Login sync QR code
-            implementation(libs.zxing.core)
         }
     }
 }
@@ -912,39 +894,6 @@ buildkonfig {
 // (`strings -a libsqliteJni.* | grep -E '^native[A-Z]|^\(|^androidx/sqlite/'`) — or drop this
 // block if upstream ships osx_x64 again.
 // ===========================================================================
-val sqliteIntelMacNative by tasks.registering {
-    // Everything doLast touches is a local: calling a script-level val or fun from it captures the
-    // build script object, which the configuration cache cannot serialize. The mpv tasks get away
-    // with that only because CI runs them with --no-configuration-cache; this one feeds jvmMain's
-    // resources, so it runs in every desktop build and hot run.
-    val version = "2.6.2"
-    val expectedSha256 = "e61efb0647288b486e595950724cc53c4f15eeeca03ce2184751d02de3cfaa17"
-    val dylib = "natives/osx_x64/libsqliteJni.dylib"
-    val url = "https://dl.google.com/android/maven2/androidx/sqlite/sqlite-bundled-jvm/$version/sqlite-bundled-jvm-$version.jar"
-    val outputDir = layout.buildDirectory.dir("generated/sqliteIntelMac").get().asFile
-    description = "Extract the macOS x86_64 SQLite JNI library from sqlite-bundled-jvm $version."
-    inputs.property("url", url)
-    inputs.property("sha256", expectedSha256)
-    outputs.dir(outputDir)
-    doLast {
-        val jar = URI(url).toURL().readBytes()
-        val actual = MessageDigest.getInstance("SHA-256").digest(jar).joinToString("") { "%02x".format(it) }
-        check(actual == expectedSha256) { "Checksum mismatch for $url\n  expected $expectedSha256\n  actual   $actual" }
-        ZipInputStream(jar.inputStream()).use { zip ->
-            checkNotNull(generateSequence { zip.nextEntry }.firstOrNull { it.name == dylib }) { "$dylib missing from $url" }
-            outputDir.resolve(dylib).apply { parentFile.mkdirs() }.writeBytes(zip.readBytes())
-        }
-    }
-}
-
-kotlin {
-    sourceSets {
-        jvmMain {
-            resources.srcDir(sqliteIntelMacNative)
-        }
-    }
-}
-
 aboutLibraries {
     collect.configPath = file("../config")
     export {

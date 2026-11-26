@@ -1,0 +1,52 @@
+name: Build APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master, dev ]
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      # Folder core/ (modul common, data, domain, service/*) harus ada, kalau tidak Gradle gagal
+      # dengan "Configuring project ':loginSync' without an existing directory".
+      - name: Ambil modul core jika belum ada
+        run: |
+          if [ ! -d core/service/loginSync ]; then
+            rm -rf core
+            git clone --depth 1 https://github.com/maxrave-dev/core.git core
+          fi
+          ls core core/service
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: microsoft
+          cache: gradle
+
+      - name: Siapkan properti build
+        run: |
+          echo "" >> gradle.properties
+          echo "isFullBuild=true" >> gradle.properties
+          : > local.properties
+          echo "SENTRY_DSN=" >> local.properties
+          echo "SENTRY_AUTH_TOKEN=" >> local.properties
+          echo "LASTFM_API_KEY=" >> local.properties
+          echo "LASTFM_SECRET=" >> local.properties
+          echo "DISCORD_CLIENT_ID=" >> local.properties
+
+      - name: Generate aboutLibraries.json
+        run: ./gradlew exportLibraryDefinitions
+
+      - name: Build APK debug
+        run: ./gradlew androidApp:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: androidApp/build/outputs/apk/debug/*.apk
