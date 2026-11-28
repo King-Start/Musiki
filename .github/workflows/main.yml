@@ -27,6 +27,23 @@ jobs:
           fi
           ls core core/service
 
+      # Kode app memanggil getListTrackVideoId() dan removeTrackFromLocalPlaylist() TANPA pairId.
+      # Kalau CORE_REF kosong, cari commit core terbaru yang masih punya API seperti itu.
+      - name: Pilih versi core yang cocok
+        run: |
+          if [ -z "$CORE_REF" ] && [ -d core/.git ]; then
+            for c in $(git -C core rev-list HEAD --max-count=600); do
+              git -C core checkout -q "$c"
+              if grep -rq "fun getListTrackVideoId" core/domain \
+                 && ! grep -rzqP "fun removeTrackFromLocalPlaylist\([^)]*pairId" core/domain; then
+                echo "Core dipakai: $(git -C core log -1 --format='%H %ad')"
+                found=1
+                break
+              fi
+            done
+            [ -n "$found" ] || echo "Tidak ketemu commit cocok, pakai terakhir yang dicek"
+          fi
+
       - uses: actions/setup-java@v4
         with:
           java-version: 21
