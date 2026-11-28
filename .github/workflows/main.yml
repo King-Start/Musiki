@@ -10,6 +10,9 @@ env:
   # Kosong = pakai versi terbaru (saat ini tidak cocok, bikin 4 error di ViewModel).
   CORE_REF: ""
 
+permissions:
+  contents: write   # perlu untuk membuat Release
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -44,6 +47,9 @@ jobs:
             [ -n "$found" ] || echo "Tidak ketemu commit cocok, pakai terakhir yang dicek"
           fi
 
+      - name: Cetak signature getMixedForYou (untuk diagnosa)
+        run: grep -rn "getMixedForYou" core/domain core/data | head
+
       - uses: actions/setup-java@v4
         with:
           java-version: 21
@@ -54,6 +60,7 @@ jobs:
         run: |
           echo "" >> gradle.properties
           echo "isFullBuild=true" >> gradle.properties
+          echo "arm64Only=true" >> gradle.properties
           : > local.properties
           echo "SENTRY_DSN=" >> local.properties
           echo "SENTRY_AUTH_TOKEN=" >> local.properties
@@ -74,3 +81,20 @@ jobs:
         with:
           name: app-debug
           path: androidApp/build/outputs/apk/debug/*.apk
+
+      # APK langsung muncul di tab Releases (bisa diunduh tanpa zip).
+      - name: Rename APK
+        run: |
+          mkdir -p out
+          for f in androidApp/build/outputs/apk/debug/*.apk; do
+            cp "$f" "out/Musiki-build-${{ github.run_number }}-$(basename "$f")"
+          done
+          ls -la out
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Musiki build ${{ github.run_number }}
+          prerelease: true
+          files: out/*.apk
