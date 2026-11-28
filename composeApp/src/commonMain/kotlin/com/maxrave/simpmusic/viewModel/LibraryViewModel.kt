@@ -244,7 +244,9 @@ class LibraryViewModel(
         _youTubeMixForYou.value = LocalResource.Loading()
         viewModelScope.launch {
             playlistRepository.getMixedForYou().collect { data ->
-                _youTubeMixForYou.value = LocalResource.Success(data ?: emptyList())
+                // core's getMixedForYou() return type differs between versions; accept a list, else empty.
+                @Suppress("UNCHECKED_CAST")
+                _youTubeMixForYou.value = LocalResource.Success((data as? List<PlaylistsResult>) ?: emptyList())
             }
         }
     }
