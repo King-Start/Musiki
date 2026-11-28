@@ -5,6 +5,11 @@ on:
   push:
     branches: [ main, master, dev ]
 
+env:
+  # Isi dengan hash commit repo maxrave-dev/core yang cocok dengan composeApp ini.
+  # Kosong = pakai versi terbaru (saat ini tidak cocok, bikin 4 error di ViewModel).
+  CORE_REF: ""
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -13,13 +18,12 @@ jobs:
         with:
           submodules: 'recursive'
 
-      # Folder core/ (modul common, data, domain, service/*) harus ada, kalau tidak Gradle gagal
-      # dengan "Configuring project ':loginSync' without an existing directory".
       - name: Ambil modul core jika belum ada
         run: |
           if [ ! -d core/service/loginSync ]; then
             rm -rf core
-            git clone --depth 1 https://github.com/maxrave-dev/core.git core
+            git clone https://github.com/maxrave-dev/core.git core
+            if [ -n "$CORE_REF" ]; then git -C core checkout "$CORE_REF"; fi
           fi
           ls core core/service
 
@@ -39,6 +43,9 @@ jobs:
           echo "LASTFM_API_KEY=" >> local.properties
           echo "LASTFM_SECRET=" >> local.properties
           echo "DISCORD_CLIENT_ID=" >> local.properties
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
       - name: Generate aboutLibraries.json
         run: ./gradlew exportLibraryDefinitions
